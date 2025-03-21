@@ -1,0 +1,14 @@
+{
+  "log_functions": ["printf", "fprintf", "log_info", "log_error", "printk", "syslog", "LOG_ERROR", "LOG_INFO", "LOG_DEBUG"],
+  "max_call_depth": 3,
+  "sensitive_patterns": [
+    "password",
+    "passwd",
+    "secret",
+    "token",
+    "key",
+    "证书",
+    "私钥",
+    "auth"
+  ]
+} 
