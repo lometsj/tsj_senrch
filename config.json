@@ -1,5 +1,5 @@
 {
-  "log_functions": ["ngx_log_stderr"],
+  "log_functions": ["print_log"],
   "max_call_depth": 10,
   "sensitive_patterns": [
     "password",

@@ -111,7 +111,7 @@ def get_context_of_function(file_path, function_name, line_num):
         if end_line>file_num:
             end_line = file_num
         ret = lines[start_line:end_line]
-        return ret
+        return "".join(ret)
 def main():
     file_path = sys.argv[1]
     function_name = sys.argv[2]

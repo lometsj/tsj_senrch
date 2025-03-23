@@ -190,12 +190,16 @@ class LLMAnalyzer:
     def __init__(self, code_analyzer: CodeAnalyzer, api_key: str = 'sk-8b17d606cd9b499595f5f6af44eb58e8', base_url: str = 'https://api.deepseek.com/v1', model: str = 'deepseek-reasoner'):
         self.code_analyzer = code_analyzer
         self.api_key = api_key
+        self.base_url = base_url
+        self.model = model
+        self.client = openai.OpenAI(api_key=api_key, base_url=base_url)
+        
         if api_key:
             openai.api_key = api_key
     
-    def prepare_context(self, call_path: List[Dict]) -> str:
+    def prepare_context(self, log_func: str, call_path: List[Dict]) -> str:
         """准备用于查询LLM的上下文"""
-        context = "我将提供一个日志打印函数的调用路径，请判断它是否打印了敏感信息（如密码、密钥、令牌等）：\n\n"
+        context = f"我将提供一个日志打印函数{log_func}的调用路径, 这个函数的参数将会在日志中输出，请判断它是否打印了敏感信息（如密码、密钥、令牌等）：\n\n"
         
         # 反转调用路径，从最上层调用者开始
         for i, call in enumerate(reversed(call_path)):
@@ -207,7 +211,6 @@ class LLMAnalyzer:
         context += "请分析上述代码路径，判断最终的日志打印是否包含敏感信息。如果需要更多信息，请使用以下JSON格式请求：\n"
         context += "1. 获取符号信息: {\"command\": \"get_symbol\", \"sym_name\": \"符号名称\"}\n"
         context += "2. 获取调用信息: {\"command\": \"call_by\", \"sym_name\": \"符号名称\"}\n\n"
-        context += "3. 获取更多上下文：{\"command\": \"get_context\", \"
         context += "如果确定是否包含敏感信息，请在回答中包含:\n"
         context += "- 如有敏感信息: [tsj_have] 并提供 {\"sensitive_type\": \"敏感类型\", \"context\": \"代码上下文\"}\n"
         context += "- 如无敏感信息: [tsj_nothave]\n"
@@ -261,13 +264,17 @@ class LLMAnalyzer:
             
             for attempt in range(max_retries):
                 try:
-                    response = openai.ChatCompletion.create(
-                        model="gpt-4",  # 或其他适合的模型
+                    response = self.client.chat.completions.create(
+                        model=self.model,
                         messages=messages,
-                        temperature=0.1  # 低温度以获得更确定的回答
+                        temperature=0.1,  # 低温度以获得更确定的回答
+                        max_tokens=2000,  # 设置最大token数
+                        top_p=0.95,  # 设置top_p参数
+                        frequency_penalty=0,  # 设置frequency_penalty参数
+                        presence_penalty=0,  # 设置presence_penalty参数
                     )
                     return response.choices[0].message.content
-                except (openai.error.RateLimitError, openai.error.APIError) as e:
+                except (openai.RateLimitError, openai.APIError) as e:
                     if attempt < max_retries - 1:
                         logger.warning(f"API调用失败，尝试重试 ({attempt+1}/{max_retries}): {str(e)}")
                         time.sleep(retry_delay * (2 ** attempt))  # 指数退避
@@ -275,6 +282,7 @@ class LLMAnalyzer:
                         raise
         except Exception as e:
             logger.error(f"调用OpenAI API时出错: {str(e)}")
+            logger.error(f"错误信息: {traceback.format_exc()}")
             return f"API调用错误: {str(e)}"
     
     def analyze_log_function(self, log_func: str, call_paths: List[List[Dict]]) -> List[Dict]:
@@ -287,7 +295,7 @@ class LLMAnalyzer:
             # 初始化对话
             messages = [
                 {"role": "system", "content": "你是一个代码安全分析专家，专注于识别代码中的敏感信息泄露。"},
-                {"role": "user", "content": self.prepare_context(call_path)}
+                {"role": "user", "content": self.prepare_context(log_func, call_path)}
             ]
             
             conversation_complete = False
@@ -308,6 +316,7 @@ class LLMAnalyzer:
                 
                 # 获取LLM响应
                 llm_response = self.query_openai(messages)
+                logger.info(f"LLM响应: {llm_response}")
                 result["conversation"].append({"role": "assistant", "content": llm_response})
                 
                 # 检查是否结束对话
@@ -340,7 +349,8 @@ class LLMAnalyzer:
                         
                         messages.append({"role": "assistant", "content": llm_response})
                         messages.append({"role": "user", "content": response_message})
-                        
+                        logger.info(f"用户请求: {llm_response}")
+                        logger.info(f"用户请求: {response_message}")
                         result["conversation"].append({"role": "user", "content": response_message})
                     else:
                         # 如果没有请求但也没有结束标记，鼓励模型给出结论
@@ -385,21 +395,21 @@ class ResultProcessor:
             <meta charset="UTF-8">
             <title>敏感信息日志打印分析报告</title>
             <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .summary { background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; }
-                .log-function { margin-bottom: 30px; border: 1px solid #ccc; padding: 10px; }
-                .path { margin-bottom: 20px; padding: 10px; border-left: 3px solid #ddd; }
-                .sensitive { background-color: #ffdddd; }
-                .safe { background-color: #ddffdd; }
-                .highlight { background-color: yellow; font-weight: bold; }
-                .call-path { font-family: monospace; white-space: pre; }
-                .conversation { border: 1px solid #eee; padding: 10px; margin-top: 10px; }
-                .assistant { background-color: #e6f7ff; }
-                .user { background-color: #f0f0f0; }
-                .message { padding: 5px; margin: 5px 0; }
-                .sensitive-info { color: red; font-weight: bold; }
-                details { margin-bottom: 10px; }
-                summary { cursor: pointer; font-weight: bold; }
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .summary {{ background-color: #f0f0f0; padding: 10px; margin-bottom: 20px; }}
+                .log-function {{ margin-bottom: 30px; border: 1px solid #ccc; padding: 10px; }}
+                .path {{ margin-bottom: 20px; padding: 10px; border-left: 3px solid #ddd; }}
+                .sensitive {{ background-color: #ffdddd; }}
+                .safe {{ background-color: #ddffdd; }}
+                .highlight {{ background-color: yellow; font-weight: bold; }}
+                .call-path {{ font-family: monospace; white-space: pre; }}
+                .conversation {{ border: 1px solid #eee; padding: 10px; margin-top: 10px; }}
+                .assistant {{ background-color: #e6f7ff; }}
+                .user {{ background-color: #f0f0f0; }}
+                .message {{ padding: 5px; margin: 5px 0; }}
+                .sensitive-info {{ color: red; font-weight: bold; }}
+                details {{ margin-bottom: 10px; }}
+                summary {{ cursor: pointer; font-weight: bold; }}
             </style>
         </head>
         <body>
@@ -559,23 +569,23 @@ def main():
                 print(f"  调用函数: {call['caller']}")
                 print(f"  上下文:\n{call['context']}")
     
-    # # 初始化LLM分析器
-    # llm_analyzer = LLMAnalyzer(code_analyzer, args.api_key)
+    # 初始化LLM分析器
+    llm_analyzer = LLMAnalyzer(code_analyzer, args.api_key)
     
-    # # 分析每个日志函数
-    # results = {}
-    # for log_func, paths in call_paths.items():
-    #     logger.info(f"使用LLM分析日志函数 {log_func} 的 {len(paths)} 条调用路径")
-    #     results[log_func] = llm_analyzer.analyze_log_function(log_func, paths)
+    # 分析每个日志函数
+    results = {}
+    for log_func, paths in call_paths.items():
+        logger.info(f"使用LLM分析日志函数 {log_func} 的 {len(paths)} 条调用路径")
+        results[log_func] = llm_analyzer.analyze_log_function(log_func, paths)
     
-    # # 处理结果
-    # result_processor = ResultProcessor(args.data_dir)
-    # result_file = result_processor.save_results(results)
-    # report_file = result_processor.generate_html_report(results)
+    # 处理结果
+    result_processor = ResultProcessor(args.data_dir)
+    result_file = result_processor.save_results(results)
+    report_file = result_processor.generate_html_report(results)
     
-    # logger.info(f"分析完成！结果已保存到: {result_file}")
-    # logger.info(f"HTML报告已生成: {report_file}")
-    # logger.info(f"请在浏览器中打开HTML报告查看详细分析结果")
+    logger.info(f"分析完成！结果已保存到: {result_file}")
+    logger.info(f"HTML报告已生成: {report_file}")
+    logger.info(f"请在浏览器中打开HTML报告查看详细分析结果")
 
 if __name__ == "__main__":
     main()
