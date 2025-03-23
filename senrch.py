@@ -6,11 +6,13 @@ import subprocess
 import json
 import re
 import argparse
+import traceback
 from typing import List, Dict, Any, Tuple, Optional
 import logging
 import openai
 import time
 import html
+import tool
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class CodeAnalyzer:
     """代码分析器，负责调用cscope生成代码关系数据"""
-    
+
     def __init__(self, code_dir: str, data_dir: str):
         self.code_dir = os.path.abspath(code_dir)
         self.data_dir = os.path.abspath(data_dir)
@@ -126,38 +128,22 @@ class CodeAnalyzer:
                 if len(parts) < 3:
                     continue
                 
-                file_path, line_num = parts[0], parts[1]
-                try:
-                    with open(os.path.join(self.code_dir, file_path), 'r', errors='ignore') as f:
-                        content = f.readlines()
-                    
-                    if int(line_num) <= len(content):
-                        call_line = content[int(line_num) - 1].strip()
-                        # 提取调用者函数名（简化处理）
-                        caller_func = "unknown"
-                        
-                        # 向上查找最近的函数定义
-                        for i in range(int(line_num)-1, 0, -1):
-                            prev_line = content[i-1].strip()
-                            if re.search(r'\w+\s*\([^)]*\)\s*{', prev_line):
-                                match = re.search(r'(\w+)\s*\(', prev_line)
-                                if match:
-                                    caller_func = match.group(1)
-                                    break
-                        
-                        calls.append({
-                            "file": file_path,
-                            "line": line_num,
-                            "caller": caller_func,
-                            "context": call_line
-                        })
-                except Exception as e:
-                    logger.warning(f"处理调用信息时出错: {str(e)}")
+                file_path,caller_func, line_num = parts[0], parts[1], parts[2]
+                # context = tool.find_function_in_c_file(os.path.join(self.code_dir, file_path), caller_func)
+                context = tool.get_context_of_function(os.path.join(self.code_dir, file_path), caller_func, int(line_num))
+                                       
+                calls.append({
+                    "file": file_path,
+                    "line": line_num,
+                    "caller": caller_func,
+                    "context": context
+                })
             
             return calls
             
         except Exception as e:
             logger.error(f"获取调用信息时出错: {str(e)}")
+            logger.error(f"错误信息: {traceback.format_exc()}")
             return []
     
     def find_call_paths(self, log_functions: List[str], max_depth: int = 3) -> Dict[str, List[List[Dict]]]:
@@ -178,7 +164,7 @@ class CodeAnalyzer:
                 current_func = call["caller"]
                 current_depth = 1
                 
-                while current_func != "unknown" and current_depth < max_depth:
+                while current_func != "main" and current_depth < max_depth:
                     upper_calls = self.get_call_by_info(current_func)
                     
                     if not upper_calls:
@@ -221,6 +207,7 @@ class LLMAnalyzer:
         context += "请分析上述代码路径，判断最终的日志打印是否包含敏感信息。如果需要更多信息，请使用以下JSON格式请求：\n"
         context += "1. 获取符号信息: {\"command\": \"get_symbol\", \"sym_name\": \"符号名称\"}\n"
         context += "2. 获取调用信息: {\"command\": \"call_by\", \"sym_name\": \"符号名称\"}\n\n"
+        context += "3. 获取更多上下文：{\"command\": \"get_context\", \"
         context += "如果确定是否包含敏感信息，请在回答中包含:\n"
         context += "- 如有敏感信息: [tsj_have] 并提供 {\"sensitive_type\": \"敏感类型\", \"context\": \"代码上下文\"}\n"
         context += "- 如无敏感信息: [tsj_nothave]\n"
@@ -442,7 +429,10 @@ class ResultProcessor:
             
             detailed_results += f'<div class="log-function {function_class}">\n'
             detailed_results += f'<h3>日志函数: {html.escape(log_func)}</h3>\n'
-            detailed_results += f'<p>状态: {"<span class=\"sensitive-info\">包含敏感信息</span>" if has_sensitive else "<span>安全</span>"}</p>\n'
+            if has_sensitive:
+                detailed_results += '<p>状态: "<span class=\"sensitive-info\">包含敏感信息</span> </p>\n'
+            else:
+                detailed_results += '<p>状态: "<span>安全</span> </p>\n'
             detailed_results += f'<p>调用路径数: {len(func_results)}</p>\n'
             
             for idx, result in enumerate(func_results):
@@ -487,7 +477,7 @@ class ResultProcessor:
                     role_class = "assistant" if msg["role"] == "assistant" else "user"
                     detailed_results += f'<div class="message {role_class}">\n'
                     detailed_results += f'<strong>{msg["role"].capitalize()}:</strong><br>\n'
-                    detailed_results += f'{html.escape(msg["content"]).replace("[tsj_have]", "<span class=\'sensitive-info\'>[敏感信息]</span>").replace("[tsj_nothave]", "<span>[无敏感信息]</span>").replace("[tsj_end]", "<span>[分析结束]</span>").replace("\n", "<br>")}\n'
+                    detailed_results += html.escape(msg["content"]).replace("[tsj_have]", "<span class=\'sensitive-info\'>[敏感信息]</span>").replace("[tsj_nothave]", "<span>[无敏感信息]</span>").replace("[tsj_end]", "<span>[分析结束]</span>").replace("\n", "<br>")
                     detailed_results += '</div>\n'
                 
                 detailed_results += '</div>\n</details>\n'
@@ -551,28 +541,41 @@ def main():
     
     # 获取日志函数调用路径
     log_functions = config.get("log_functions", [])
-    max_depth = config.get("max_call_depth", 3)
+    max_depth = config.get("max_call_depth", 10)
     
     logger.info(f"分析以下日志函数: {', '.join(log_functions)}")
     call_paths = code_analyzer.find_call_paths(log_functions, max_depth)
-    
-    # 初始化LLM分析器
-    llm_analyzer = LLMAnalyzer(code_analyzer, args.api_key)
-    
-    # 分析每个日志函数
-    results = {}
+
+    # 结构化输出调用路径
     for log_func, paths in call_paths.items():
-        logger.info(f"使用LLM分析日志函数 {log_func} 的 {len(paths)} 条调用路径")
-        results[log_func] = llm_analyzer.analyze_log_function(log_func, paths)
+        print(f"\n日志函数: {log_func}")
+        print("-" * 50)
+        for i, path in enumerate(paths, 1):
+            print(f"\n调用路径 {i}:")
+            for j, call in enumerate(path, 1):
+                print(f"\n  调用层级 {j}:")
+                print(f"  文件: {call['file']}")
+                print(f"  行号: {call['line']}")
+                print(f"  调用函数: {call['caller']}")
+                print(f"  上下文:\n{call['context']}")
     
-    # 处理结果
-    result_processor = ResultProcessor(args.data_dir)
-    result_file = result_processor.save_results(results)
-    report_file = result_processor.generate_html_report(results)
+    # # 初始化LLM分析器
+    # llm_analyzer = LLMAnalyzer(code_analyzer, args.api_key)
     
-    logger.info(f"分析完成！结果已保存到: {result_file}")
-    logger.info(f"HTML报告已生成: {report_file}")
-    logger.info(f"请在浏览器中打开HTML报告查看详细分析结果")
+    # # 分析每个日志函数
+    # results = {}
+    # for log_func, paths in call_paths.items():
+    #     logger.info(f"使用LLM分析日志函数 {log_func} 的 {len(paths)} 条调用路径")
+    #     results[log_func] = llm_analyzer.analyze_log_function(log_func, paths)
+    
+    # # 处理结果
+    # result_processor = ResultProcessor(args.data_dir)
+    # result_file = result_processor.save_results(results)
+    # report_file = result_processor.generate_html_report(results)
+    
+    # logger.info(f"分析完成！结果已保存到: {result_file}")
+    # logger.info(f"HTML报告已生成: {report_file}")
+    # logger.info(f"请在浏览器中打开HTML报告查看详细分析结果")
 
 if __name__ == "__main__":
     main()
