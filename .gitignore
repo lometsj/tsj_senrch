@@ -7,3 +7,4 @@ tsj_venv
 **/*.pyw
 **/*.pyz
 **/*.pywz
+config*.json

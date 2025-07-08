@@ -1,0 +1,7 @@
+{
+  "log_functions": ["print_log"],
+  "max_call_depth": 10,
+  "base_url":"http://192.168.1.217:11434/v1/",
+  "api_key":"123",
+  "model":"qwen2.5-coder"
+} 

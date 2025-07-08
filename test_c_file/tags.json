@@ -1,0 +1,23 @@
+{"_type": "ptag", "name": "JSON_OUTPUT_VERSION", "path": "0.0", "pattern": "in development"}
+{"_type": "ptag", "name": "TAG_FILE_SORTED", "path": "1", "pattern": "0=unsorted, 1=sorted, 2=foldcase"}
+{"_type": "ptag", "name": "TAG_OUTPUT_EXCMD", "path": "mixed", "pattern": "number, pattern, mixed, or combineV2"}
+{"_type": "ptag", "name": "TAG_OUTPUT_FILESEP", "path": "slash", "pattern": "slash or backslash"}
+{"_type": "ptag", "name": "TAG_PATTERN_LENGTH_LIMIT", "path": "96", "pattern": "0 for no limit"}
+{"_type": "ptag", "name": "TAG_PROC_CWD", "path": "/home/tsj/tsj_senrch/test_c_file/", "pattern": ""}
+{"_type": "ptag", "name": "TAG_PROGRAM_AUTHOR", "path": "Universal Ctags Team", "pattern": ""}
+{"_type": "ptag", "name": "TAG_PROGRAM_NAME", "path": "Universal Ctags", "pattern": "Derived from Exuberant Ctags"}
+{"_type": "ptag", "name": "TAG_PROGRAM_URL", "path": "https://ctags.io/", "pattern": "official site"}
+{"_type": "ptag", "name": "TAG_PROGRAM_VERSION", "path": "5.9.0", "pattern": ""}
+{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "/^#define LOG_FILE /", "file": true, "line": 6, "kind": "macro", "end": 6}
+{"_type": "tag", "name": "MAX_PASSWORD_LENGTH", "path": "test.c", "pattern": "/^#define MAX_PASSWORD_LENGTH /", "file": true, "line": 7, "kind": "macro", "end": 7}
+{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "/^int calculate_checksum(const char *data) {$/", "line": 136, "typeref": "typename:int", "kind": "function", "end": 143}
+{"_type": "tag", "name": "cleanup_resources", "path": "test.c", "pattern": "/^void cleanup_resources() {$/", "line": 193, "typeref": "typename:void", "kind": "function", "end": 205}
+{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "/^void generate_report() {$/", "line": 179, "typeref": "typename:void", "kind": "function", "end": 191}
+{"_type": "tag", "name": "handle_special_case", "path": "test.c", "pattern": "/^void handle_special_case(int condition) {$/", "line": 124, "typeref": "typename:void", "kind": "function", "end": 134}
+{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "/^void initialize_system() {$/", "line": 38, "typeref": "typename:void", "kind": "function", "end": 46}
+{"_type": "tag", "name": "log_system_info", "path": "test.c", "pattern": "/^void log_system_info() {$/", "line": 48, "typeref": "typename:void", "kind": "function", "end": 58}
+{"_type": "tag", "name": "main", "path": "test.c", "pattern": "/^int main() {$/", "line": 21, "typeref": "typename:int", "kind": "function", "end": 36}
+{"_type": "tag", "name": "perform_extra_operations", "path": "test.c", "pattern": "/^void perform_extra_operations(int value) {$/", "line": 145, "typeref": "typename:void", "kind": "function", "end": 160}
+{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "/^void print_log(const char *message) {$/", "line": 162, "typeref": "typename:void", "kind": "function", "end": 177}
+{"_type": "tag", "name": "process_password", "path": "test.c", "pattern": "/^void process_password(const char *password) {$/", "line": 76, "typeref": "typename:void", "kind": "function", "end": 122}
+{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "/^void validate_input(const char *input) {$/", "line": 60, "typeref": "typename:void", "kind": "function", "end": 74}

@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 引入Bootstrap CSS -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 添加Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 15px;
+        }
+        
+        .bubble {
+            position: relative;
+            max-width: 70%;
+            margin: 10px 20px;
+            padding: 12px;
+            border-radius: 8px;
+            animation: fadeIn 0.3s;
+        }
+        
+        .bubble-left {
+            background: #d1f4d3;
+            margin-right: auto;
+        }
+        
+        .bubble-right {
+            background: #e5f2ff;
+            margin-left: auto;
+        }
+        
+        /* 调整小三角方向 */
+        .bubble-left::before {
+            left: auto;
+            right: -10px;
+            border-width: 8px 0 8px 10px;
+            border-color: transparent transparent transparent #d1f4d3;
+        }
+        
+        .bubble-right::before {
+            right: -10px;
+            left: auto;
+            border-width: 8px 10px 8px 0;
+            border-color: transparent #e5f2fd transparent transparent;
+        }
+        
+        /* QQ气泡小三角 */
+        /* 添加气泡小三角样式 */
+        .bubble-left::before, .bubble-right::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+        
+        .bubble-left::before {
+            left: -10px;
+            top: 10px;
+            border-width: 8px 10px 8px 0;
+            border-color: transparent #d1f4d3 transparent transparent;
+        }
+        
+        .bubble-right::before {
+            right: -10px;
+            top: 10px;
+            border-width: 8px 0 8px 10px;
+            border-color: transparent transparent transparent #e3f2fd;
+        }
+        
+        /* 确保气泡有相对定位 */
+        .bubble {
+            position: relative;
+        }
+
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* 在CSS部分添加 */
+        .bubble {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        /* 添加角色头部样式 */
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            margin: 15px 0;
+        }
+        
+        .role-header {
+            margin: 0 20px 5px 20px;
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            align-items: center;
+        }
+        .role-header i {
+            margin-right: 8px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <h2 class="mb-4">TSJ数据分析展示</h2>
+        <div class="d-flex justify-content-between mb-1">  <!-- 将mb-3改为mb-1减少下边距 -->
+            <input type="file" id="jsonUpload" class="form-control p-1" accept=".json">  <!-- 添加p-1减少内边距 -->
+            <button id="filterBtn" class="btn btn-outline-primary ms-2" style="white-space: nowrap;">仅显示问题信息</button>
+        </div>
+        <div id="chatContainer" class="chat-container"></div>
+    </div>
+
+    <script>
+        let currentData = [];
+        let showOnlyProblem = false;
+
+        document.getElementById('jsonUpload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const jsonData = JSON.parse(event.target.result);
+                    currentData = jsonData;
+                    displayData(currentData);
+                } catch (error) {
+                    alert('文件解析错误: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('filterBtn').addEventListener('click', function() {
+            showOnlyProblem = !showOnlyProblem;
+            this.textContent = showOnlyProblem ? '显示全部' : '仅显示问题信息';
+            displayData(currentData);
+        });
+
+        // 修改气泡生成部分
+        function displayData(data) {
+            const container = document.getElementById('chatContainer');
+            container.innerHTML = '';
+
+            data.forEach((item, index) => {
+                if (showOnlyProblem && !item.has_problem_info) return;
+
+                // 创建折叠面板
+                const panel = document.createElement('div');
+                panel.className = 'card mb-3';
+                
+                // 面板标题
+                const panelHeader = document.createElement('div');
+                panelHeader.className = 'card-header d-flex justify-content-between align-items-center';
+                panelHeader.innerHTML = `
+                    <span>
+                        <strong>${item.log_function}</strong> - 记录 #${item.path_index}
+                        ${item.has_problem_info ? 
+                            '<span class="badge bg-danger ms-2">问题信息</span>' : 
+                            '<span class="badge bg-success ms-2">安全</span>'}
+                    </span>
+                    <button class="btn btn-sm btn-outline-secondary toggle-btn">展开</button>
+                `;
+                
+                // 面板内容
+                const panelBody = document.createElement('div');
+                panelBody.className = 'card-body collapse';
+                
+                // 显示对话气泡
+                if (item.conversation && Array.isArray(item.conversation)) {
+                    item.conversation.forEach(msg => {
+                        // 创建消息容器
+                        const messageContainer = document.createElement('div');
+                        messageContainer.className = 'message-container';
+                        
+                        // 创建角色头部
+                        const roleHeader = document.createElement('div');
+                        roleHeader.className = 'role-header';
+                        
+                        
+                        // 创建气泡元素的创建顺序，以下是修正后的代码片段：
+                        const bubble = document.createElement('div');
+                        
+                        // 设置气泡样式
+                        if (msg.role === 'user') {
+                            bubble.className = 'bubble bubble-right';
+                            roleHeader.innerHTML = `<i class="bi bi-person-fill"></i><span>用户</span>`;
+                            roleHeader.style.cssText = 'margin-left: auto;';
+                            messageContainer.style.justifyContent = 'flex-end';
+                        } else if (msg.role === 'assistant') {
+                            bubble.className = 'bubble bubble-left';
+                            roleHeader.innerHTML = `<i class="bi bi-robot"></i><span>助手</span>`;
+                            messageContainer.style.justifyContent = 'flex-start';
+                        }
+                        
+                        // 添加内容
+                        bubble.innerHTML = `<div>${msg.content}</div>`;
+                        
+                        // 组装元素
+                        messageContainer.appendChild(roleHeader);
+                        messageContainer.appendChild(bubble);
+                        panelBody.appendChild(messageContainer);
+                    });
+                }
+
+                // 显示其他信息
+                const table = document.createElement('table');
+                table.className = 'table table-bordered table-sm mt-3';
+                
+                let tableHtml = '<thead><tr><th>字段</th><th>值</th></tr></thead><tbody>';
+                
+                // 添加代码片段
+                // tableHtml += `<tr>
+                //     <td>代码片段</td>
+                //     <td><pre class="bg-light p-2">${item.call}</pre></td>
+                // </tr>`;
+                
+                // 添加问题信息详情
+                if (item.has_problem_info) {
+                    tableHtml += `<tr class="table-danger">
+                        <td>问题信息详情</td>
+                        <td>类型: ${item.problem_info.problem_type}<br>
+                        上下文: ${item.problem_info.context}</td>
+                    </tr>`;
+                }
+                
+                tableHtml += '</tbody>';
+                table.innerHTML = tableHtml;
+                panelBody.appendChild(table);
+                
+                // 添加点击事件
+                panelHeader.addEventListener('click', function() {
+                    panelBody.classList.toggle('show');
+                    const toggleBtn = panelHeader.querySelector('.toggle-btn');
+                    toggleBtn.textContent = panelBody.classList.contains('show') ? '折叠' : '展开';
+                });
+                
+                // 防止按钮点击事件冒泡到标题
+                const toggleBtn = panelHeader.querySelector('.toggle-btn');
+                toggleBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    panelBody.classList.toggle('show');
+                    this.textContent = panelBody.classList.contains('show') ? '折叠' : '展开';
+                });
+                
+                panel.appendChild(panelHeader);
+                panel.appendChild(panelBody);
+                container.appendChild(panel);
+            });
+        }
+    </script>
+</body>
+</html>

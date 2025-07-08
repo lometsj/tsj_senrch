@@ -1,0 +1,100 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_OUTPUT_EXCMD	mixed	/number, pattern, mixed, or combineV2/
+!_TAG_OUTPUT_FILESEP	slash	/slash or backslash/
+!_TAG_OUTPUT_MODE	u-ctags	/u-ctags or e-ctags/
+!_TAG_PATTERN_LENGTH_LIMIT	96	/0 for no limit/
+!_TAG_PROC_CWD	/home/tsj/tsj_senrch/test_c_file/	//
+!_TAG_PROGRAM_AUTHOR	Universal Ctags Team	//
+!_TAG_PROGRAM_NAME	Universal Ctags	/Derived from Exuberant Ctags/
+!_TAG_PROGRAM_URL	https://ctags.io/	/official site/
+!_TAG_PROGRAM_VERSION	5.9.0	//
+LOG_FILE	test.c	/^#define LOG_FILE /;"	d	file:
+MAX_PASSWORD_LENGTH	test.c	/^#define MAX_PASSWORD_LENGTH /;"	d	file:
+_type	tags.json	/^{"_type": "ptag", "name": "JSON_OUTPUT_VERSION", "path": "0.0", "pattern": "in development"}$/;"	s
+_type	tags.json	/^{"_type": "ptag", "name": "TAG_OUTPUT_EXCMD", "path": "mixed", "pattern": "number, pattern, mixe/;"	s
+_type	tags.json	/^{"_type": "ptag", "name": "TAG_PATTERN_LENGTH_LIMIT", "path": "96", "pattern": "0 for no limit"}$/;"	s
+_type	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_AUTHOR", "path": "Universal Ctags Team", "pattern": ""}$/;"	s
+_type	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_URL", "path": "https:\/\/ctags.io\/", "pattern": "officia/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+_type	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+_type	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+calculate_checksum	test.c	/^int calculate_checksum(const char *data) {$/;"	f	typeref:typename:int
+cleanup_resources	test.c	/^void cleanup_resources() {$/;"	f	typeref:typename:void
+end	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	n
+end	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	n
+end	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	n
+end	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	n
+end	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	n
+end	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	n
+end	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	n
+file	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	b
+generate_report	test.c	/^void generate_report() {$/;"	f	typeref:typename:void
+handle_special_case	test.c	/^void handle_special_case(int condition) {$/;"	f	typeref:typename:void
+initialize_system	test.c	/^void initialize_system() {$/;"	f	typeref:typename:void
+kind	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	s
+kind	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+kind	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+kind	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+kind	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+kind	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+kind	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+line	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	n
+line	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	n
+line	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	n
+line	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	n
+line	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	n
+line	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	n
+line	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	n
+log_system_info	test.c	/^void log_system_info() {$/;"	f	typeref:typename:void
+main	test.c	/^int main() {$/;"	f	typeref:typename:int
+name	tags.json	/^{"_type": "ptag", "name": "JSON_OUTPUT_VERSION", "path": "0.0", "pattern": "in development"}$/;"	s
+name	tags.json	/^{"_type": "ptag", "name": "TAG_OUTPUT_EXCMD", "path": "mixed", "pattern": "number, pattern, mixe/;"	s
+name	tags.json	/^{"_type": "ptag", "name": "TAG_PATTERN_LENGTH_LIMIT", "path": "96", "pattern": "0 for no limit"}$/;"	s
+name	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_AUTHOR", "path": "Universal Ctags Team", "pattern": ""}$/;"	s
+name	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_URL", "path": "https:\/\/ctags.io\/", "pattern": "officia/;"	s
+name	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	s
+name	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+name	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+name	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+name	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+name	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+name	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+path	tags.json	/^{"_type": "ptag", "name": "JSON_OUTPUT_VERSION", "path": "0.0", "pattern": "in development"}$/;"	s
+path	tags.json	/^{"_type": "ptag", "name": "TAG_OUTPUT_EXCMD", "path": "mixed", "pattern": "number, pattern, mixe/;"	s
+path	tags.json	/^{"_type": "ptag", "name": "TAG_PATTERN_LENGTH_LIMIT", "path": "96", "pattern": "0 for no limit"}$/;"	s
+path	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_AUTHOR", "path": "Universal Ctags Team", "pattern": ""}$/;"	s
+path	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_URL", "path": "https:\/\/ctags.io\/", "pattern": "officia/;"	s
+path	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	s
+path	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+path	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+path	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+path	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+path	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+path	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+pattern	tags.json	/^{"_type": "ptag", "name": "JSON_OUTPUT_VERSION", "path": "0.0", "pattern": "in development"}$/;"	s
+pattern	tags.json	/^{"_type": "ptag", "name": "TAG_OUTPUT_EXCMD", "path": "mixed", "pattern": "number, pattern, mixe/;"	s
+pattern	tags.json	/^{"_type": "ptag", "name": "TAG_PATTERN_LENGTH_LIMIT", "path": "96", "pattern": "0 for no limit"}$/;"	s
+pattern	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_AUTHOR", "path": "Universal Ctags Team", "pattern": ""}$/;"	s
+pattern	tags.json	/^{"_type": "ptag", "name": "TAG_PROGRAM_URL", "path": "https:\/\/ctags.io\/", "pattern": "officia/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "LOG_FILE", "path": "test.c", "pattern": "\/^#define LOG_FILE \/", "fil/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+pattern	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+perform_extra_operations	test.c	/^void perform_extra_operations(int value) {$/;"	f	typeref:typename:void
+print_log	test.c	/^void print_log(const char *message) {$/;"	f	typeref:typename:void
+process_password	test.c	/^void process_password(const char *password) {$/;"	f	typeref:typename:void
+typeref	tags.json	/^{"_type": "tag", "name": "calculate_checksum", "path": "test.c", "pattern": "\/^int calculate_ch/;"	s
+typeref	tags.json	/^{"_type": "tag", "name": "generate_report", "path": "test.c", "pattern": "\/^void generate_repor/;"	s
+typeref	tags.json	/^{"_type": "tag", "name": "initialize_system", "path": "test.c", "pattern": "\/^void initialize_s/;"	s
+typeref	tags.json	/^{"_type": "tag", "name": "main", "path": "test.c", "pattern": "\/^int main() {$\/", "line": 21, /;"	s
+typeref	tags.json	/^{"_type": "tag", "name": "print_log", "path": "test.c", "pattern": "\/^void print_log(const char/;"	s
+typeref	tags.json	/^{"_type": "tag", "name": "validate_input", "path": "test.c", "pattern": "\/^void validate_input(/;"	s
+validate_input	test.c	/^void validate_input(const char *input) {$/;"	f	typeref:typename:void

@@ -18,6 +18,12 @@ void generate_report();
 void initialize_system();
 void cleanup_resources();
 
+struct task{
+	char task_passwd[32];
+	int task_id
+};
+
+
 int main() {
     initialize_system();
     
