@@ -16,6 +16,7 @@ import tool
 from sensetive import sensitive_problem
 from overflow import overflow_problem
 from command_inject import command_inject_problem
+from mem_leak import mem_leak_problem
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -105,7 +106,7 @@ class CodeAnalyzer:
         """获取调用这个符号的caller的代码上下文"""
         try:
             result = subprocess.run(
-                ["global", "-xr", symbol],
+                ["global", "-xsr", symbol],
                 cwd=self.code_dir,
                 capture_output=True,
                 text=True,
@@ -454,8 +455,9 @@ def main():
     #################################register different type of vuln
     problem_type = [
         # sensitive_problem,
-        command_inject_problem,
-        overflow_problem
+        # command_inject_problem,
+        # overflow_problem,
+        mem_leak_problem
     ]
     results = []
     for problem in problem_type:

@@ -51,6 +51,15 @@ void initialize_system() {
     log_system_info();
 }
 
+void test_mem_leak(){
+    char *buf = malloc(1024);
+    int condition = get_sth();
+    if(condition !=0){
+        return;
+    }
+    free(buf);
+}
+
 void log_system_info() {
     // 记录系统信息到日志
     time_t now = time(NULL);
