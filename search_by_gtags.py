@@ -442,7 +442,7 @@ def main():
     code_analyzer = CodeAnalyzer(args.code_dir, args.data_dir)
     
 
-    code_analyzer.generate_gtags_database()
+    # code_analyzer.generate_gtags_database()
     
     # 获取日志函数调用路径
     log_functions = config.get("log_functions", [])
@@ -456,8 +456,8 @@ def main():
     problem_type = [
         # sensitive_problem,
         # command_inject_problem,
-        # overflow_problem,
-        mem_leak_problem
+        overflow_problem,
+        # mem_leak_problem
     ]
     results = []
     for problem in problem_type:
@@ -469,19 +469,7 @@ def main():
             result = llm_analyzer.analyze_task(problem.prepare_context(task))
             results.append(result)
     
-    
-    # refs_dict = {}
-    # for log_function in log_functions:
-    #     refs_dict[log_function] = code_analyzer.find_all_refs(log_function)
-    #     print(refs_dict[log_function])
-    
-    
-    
-    # # 分析每个日志函数
-    # results = {}
-    # for log_func, refs in refs_dict.items():
-    #     logger.info(f"使用LLM分析日志函数 {log_func} 的 {len(refs)} 条调用路径")
-    #     results[log_func] = llm_analyzer.analyze_log_function(log_func, refs)
+
     
     # 处理结果
     result_processor = ResultProcessor(args.data_dir)
