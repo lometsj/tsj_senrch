@@ -9,6 +9,7 @@ import argparse
 import traceback
 from typing import List, Dict, Any, Tuple, Optional
 import logging
+from unittest import result
 import openai
 import time
 import html
@@ -17,6 +18,7 @@ from sensetive import sensitive_problem
 from overflow import overflow_problem
 from command_inject import command_inject_problem
 from mem_leak import mem_leak_problem
+from charset_normalizer import detect
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -38,9 +40,13 @@ class CodeAnalyzer:
         subprocess.run(["gtags", "-i"], cwd=self.code_dir, check=True)
         
     def get_code_content(self, file, line, end):
-        with open(os.path.join(self.code_dir,file),'r',encoding='utf-8',errors='ignore') as f:
-            lines = f.readlines()
-            return ''.join(lines[line-1:end])
+        with open(os.path.join(self.code_dir,file),'rb') as f:
+            code_bytes = f.read()
+            encoding = detect(code_bytes)
+            code_str = code_bytes.decode(encoding['encoding'])
+            lines = code_str.split('\n')
+            code= '\n'.join(lines[line-1:end])
+            return code
     
     def get_ref_callee_content(self, file_path, line_num):
         print(f'f:{file_path} l:{line_num}')
@@ -64,8 +70,15 @@ class CodeAnalyzer:
                 
 
     def get_symbol_info(self, symbol: str) -> Dict:
-        """获取符号的信息,先用global 看在哪些文件里，再用ctags获取具体的哈哈哈"""
+        """获取符号的信息,先用global 看在哪些文件里，再用ctags获取具体的"""
         try:
+            # 有时候大模型要求`struct xxx`的符号，直接查不行，要换成xxx来查
+            if symbol.startswith('struct'):
+                symbol = symbol.split(' ')[1]
+            # 有时候是xx->yy,直接插也不行，直接查yy
+            if '->' in symbol:
+                symbol = symbol.split(' ')[1]
+
             result = subprocess.run(
                 ["global", "-x", symbol],
                 cwd=self.code_dir,
@@ -90,12 +103,20 @@ class CodeAnalyzer:
                     check=True
                 )
                 syms = res.stdout.strip().split('\n')
-                for sym in syms:
-                    sym_dict = json.loads(sym)
-                    if sym_dict['name'] != symbol:
+                tmp_sym_to_find = symbol
+                i = 0
+                while i<len(syms):
+                    sym_dict = json.loads(syms[i])
+                    if sym_dict['name'] != tmp_sym_to_find:
+                        continue
+                    # typeref定义的结构体，查符号名指向的是匿名结构体，没有end，要重新找该匿名结构体获取end。先假设符号和结构体在同一个文件。
+                    if 'end' not in sym_dict and 'typeref' in sym_dict:
+                        tmp_sym_to_find = sym_dict['typeref'].split(':')[1]
+                        i = 0
                         continue
                     sym_dict['content'] = self.get_code_content(file, sym_dict['line'], sym_dict['end'])
                     ret.append(sym_dict)
+                    i = i + 1
             return ret
         except Exception as e:
             logger.error(f"获取符号信息时出错: {str(e)}")
@@ -176,23 +197,6 @@ class LLMAnalyzer:
 1. 如果需要知道某个函数，宏或者变量的定义，使用get_symbol获取符号信息: {"command": "get_symbol", "sym_name": "符号名称"}
 2. 如果需要进一步分析数据流，使用find_refs获取调用信息: {"command": "find_refs", "sym_name\": "符号名称"}
 '''
-    
-    def prepare_context(self, log_func: str, ref:List[str]) -> str:
-        """准备用于查询LLM的上下文"""
-        context = f"【任务背景】\n我将提供一个日志打印函数{log_func}的调用点, 这个函数的参数将会在日志中输出，请判断它是否打印了敏感信息（如密码、密钥、令牌等）。对于每一个参数，你应该详细分析该参数的来源来判断，比如如果打印某个变量，使用get_symbol获取该变量结构体，如果某个变量的值不确定为常量，使用find_refs获取调用函数信息向上追踪数据流，已经为你分析了整个代码库，所以你可以请求更多信息。\n\n"
-        context += "【输出结果要求】\n"
-        context += "请在回答中包含带tsj的标签，以下标签三选一:\n"
-        context += "- 如判断有代码问题: [tsj_have] 并提供 {\"problem_type\": \"问题类型\", \"context\": \"代码上下文\"}\n"
-        context += "- 如判断无代码信息: [tsj_nothave]\n"
-        context += "- 如果不能判断，需要获取信息进一步分析，请包含[tsj_next]，并包含get_symbol或者find_refs请求获取更多代码信息,详细格式如下："
-        context += "1. 如果需要知道某个函数，宏或者变量的定义，使用get_symbol获取符号信息: {\"command\": \"get_symbol\", \"sym_name\": \"符号名称\"}\n"
-        context += "2. 如果需要进一步分析数据流，使用find_refs获取调用信息: {\"command\": \"find_refs\", \"sym_name\": \"符号名称\"}\n\n"
-
-        context += str(ref)
-        
-
-        
-        return context
     
     def process_llm_request(self, request: Dict) -> Dict:
         """处理LLM发出的信息请求"""
@@ -312,102 +316,24 @@ class LLMAnalyzer:
         return result
 
 
-    def analyze_log_function(self, log_func: str, refs) -> List[Dict]:
-        """分析单个日志函数的所有调用路径"""
-        results = []
-        
-        for path_index, ref in enumerate(refs):
-            logger.info(f"分析 {log_func} 的调用路径 {path_index+1}/{len(refs)}")
-            
-            # 初始化对话
-            messages = [
-                {"role": "system", "content": "你是一个代码安全分析专家，专注于识别代码中的敏感信息泄露。"},
-                {"role": "user", "content": self.prepare_context(log_func, ref)}
-            ]
-            
-            conversation_complete = False
-            max_turns = 5  # 限制对话轮数
-            turn = 0
-            
-            result = {
-                "log_function": log_func,
-                "path_index": path_index,
-                "call": ref,
-                "has_problem_info": False,
-                "problem_info": None,
-                "conversation": []
-            }
-            
-            while not conversation_complete and turn < max_turns:
-                turn += 1
-                
-                # 获取LLM响应
-                llm_response = self.query_openai(messages)
-                # logger.info(f"LLM响应: {llm_response}")
-                
-                # 检查是否结束对话
-                if "[tsj_have]" in llm_response or "[tsj_nothave]" in llm_response:
-                    logger.info("专业解说下判断了")
-                    messages.append({"role": "assistant", "content": llm_response})
-                    conversation_complete = True
-                    
-                    # 检查是否包含敏感信息
-                    if "[tsj_have]" in llm_response:
-                        result["has_problem_info"] = True
-                        
-                        # 尝试提取敏感信息的JSON
-                        try:
-                            json_pattern = r'\{.*?\}'
-                            for match in re.finditer(json_pattern, llm_response, re.DOTALL):
-                                json_str = match.group(0)
-                                problem_info = json.loads(json_str)
-                                if "problem_type" in problem_info and "context" in problem_info:
-                                    result["problem_info"] = problem_info
-                                    break
-                        except Exception as e:
-                            logger.warning(f"提取标签出错: {str(e)}")
-                
-                # 如果对话未结束，处理可能的请求
-                if not conversation_complete:
-                    requests = self.extract_requests(llm_response)
-                    
-                    if requests:
-                        logger.info("需要进一步请求")
-                        responses = [self.process_llm_request(req) for req in requests]
-                        # logger.info(f"代码分析系统回答：{responses}")
-                        response_message = "【代码分析系统回答】:\n\n" + json.dumps(responses, ensure_ascii=False, indent=2)
-                        
-                        messages.append({"role": "assistant", "content": llm_response})
-                        messages.append({"role": "user", "content": response_message})
-                        # logger.info(f"用户请求: {llm_response}")
-                        logger.info(f"用户请求: {response_message}")
-                    else:
-                        # 如果没有请求但也没有结束标记，鼓励模型给出结论
-                        prompt = "请基于已有信息给出最终结论，是否包含敏感信息。记得包含[tsj_have]或[tsj_nothave]或[tsj_next]标记。"
-                        messages.append({"role": "assistant", "content": llm_response})
-                        messages.append({"role": "user", "content": prompt})
-                        
-            result['conversation'] = messages
-            results.append(result)
-        
-        return results
-
 class ResultProcessor:
     """结果处理器，负责生成结果数据和HTML报告"""
     
     def __init__(self, data_dir: str):
         self.data_dir = data_dir
-        os.makedirs(data_dir, exist_ok=True)
-    
-    def save_results(self, results: Dict) -> str:
-        """保存分析结果到JSON文件"""
         timestamp = time.strftime("%Y%m%d%H%M%S")
-        result_file = os.path.join(self.data_dir, f"analysis_result_{timestamp}.json")
+        self.result_file = os.path.join(data_dir, f"analysis_result_{timestamp}.json")
+        os.makedirs(data_dir, exist_ok=True)
+        with open(self.result_file, 'w', encoding='utf-8') as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
         
-        with open(result_file, 'w', encoding='utf-8') as f:
+    
+    def save_results(self, result) -> str:
+        """保存分析结果到JSON文件"""
+        with open(self.result_file, 'w', encoding='utf-8') as f:
+            results = json.load(f)
+            results.append(result)
             json.dump(results, f, ensure_ascii=False, indent=2)
-        
-        return result_file
     
     
 
@@ -459,7 +385,7 @@ def main():
         overflow_problem,
         # mem_leak_problem
     ]
-    results = []
+    result_processor = ResultProcessor(args.data_dir)
     for problem in problem_type:
         task_list = problem.get_task_list(config, code_analyzer)
         print(task_list)
@@ -467,15 +393,9 @@ def main():
         for i in range(len(task_list)):
             task = task_list[i]
             result = llm_analyzer.analyze_task(problem.prepare_context(task))
-            results.append(result)
+            result_processor.save_results(result)
     
-
-    
-    # 处理结果
-    result_processor = ResultProcessor(args.data_dir)
-    result_file = result_processor.save_results(results)
-    
-    logger.info(f"分析完成！结果已保存到: {result_file}")
+    logger.info(f"分析完成！结果已保存到: {result_processor.result_file}")
 
 
 if __name__ == "__main__":
