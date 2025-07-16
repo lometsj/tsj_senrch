@@ -12,8 +12,6 @@ import logging
 from unittest import result
 import openai
 import time
-import html
-import tool
 from sensetive import sensitive_problem
 from overflow import overflow_problem
 from command_inject import command_inject_problem
@@ -30,14 +28,6 @@ class CodeAnalyzer:
     def __init__(self, code_dir: str, data_dir: str):
         self.code_dir = os.path.abspath(code_dir)
         self.data_dir = os.path.abspath(data_dir)
-
-    
-            
-
-    def generate_gtags_database(self):
-        """生成GNU Global数据库"""
-        logger.info("生成GNU Global数据库")
-        subprocess.run(["gtags", "-i"], cwd=self.code_dir, check=True)
         
     def get_code_content(self, file, line, end):
         with open(os.path.join(self.code_dir,file),'rb') as f:
@@ -70,7 +60,7 @@ class CodeAnalyzer:
                 
 
     def get_symbol_info(self, symbol: str) -> Dict:
-        """获取符号的信息,先用global 看在哪些文件里，再用ctags获取具体的"""
+        """获取符号的信息,先用readtags 看在哪些文件里，再用ctags获取具体的"""
         try:
             # 有时候大模型要求`struct xxx`的符号，直接查不行，要换成xxx来查
             if symbol.startswith('struct'):
@@ -78,9 +68,9 @@ class CodeAnalyzer:
             # 有时候是xx->yy,直接插也不行，直接查yy
             if '->' in symbol:
                 symbol = symbol.split(' ')[1]
-
+            # readtags -t .tsj/tags malloc
             result = subprocess.run(
-                ["global", "-x", symbol],
+                ["readtags", "-t", ".tsj/tags", symbol],
                 cwd=self.code_dir,
                 capture_output=True,
                 text=True,
@@ -93,7 +83,7 @@ class CodeAnalyzer:
             ret = []
             for line in lines:
                 parts = line.split(maxsplit=4)
-                file = parts[2]
+                file = parts[1]
                 # ctags --fields=+ne-P --output-format=json -o - test.c
                 res = subprocess.run(
                     ['ctags','--fields=+ne-P','--output-format=json','-o','-',file],
@@ -127,7 +117,7 @@ class CodeAnalyzer:
         """获取调用这个符号的caller的代码上下文"""
         try:
             result = subprocess.run(
-                ["global", "-xsr", symbol],
+                ["cscope","-F", ".tsj/cscope" , "-d", "-L3",symbol],
                 cwd=self.code_dir,
                 capture_output=True,
                 text=True,
@@ -148,7 +138,8 @@ class CodeAnalyzer:
                 if len(parts) < 3:
                     continue
                 
-                callee, file_path, line_num, call_line =parts[0], parts[2], parts[1], parts[3]
+                # callee, file_path, line_num, call_line =parts[0], parts[2], parts[1], parts[3]
+                file_path, calle, line_num, call_line = parts[0], parts[1], parts[2], parts[3]
                 # logger.info(callee, file_path, line_num,call_line)
                 # print(f'file={file_path} line_num={line_num}')
                 caller_content = self.get_ref_callee_content(file_path, int(line_num))
@@ -342,6 +333,7 @@ def main():
     parser.add_argument('--code-dir', required=True, help='要分析的代码目录')
     parser.add_argument('--data-dir', default='./tsj_data', help='数据和报告输出目录')
     parser.add_argument('--config', default='./config.json', help='配置文件路径')
+    parser.add_argument('--interactive',default=False, help='要不要在代码分析给不出回答的时候手工介入给大模型返回答案')#todo
 
     
     args = parser.parse_args()
@@ -367,8 +359,6 @@ def main():
     # 初始化代码分析器
     code_analyzer = CodeAnalyzer(args.code_dir, args.data_dir)
     
-
-    # code_analyzer.generate_gtags_database()
     
     # 获取日志函数调用路径
     log_functions = config.get("log_functions", [])
