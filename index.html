@@ -8,14 +8,14 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
         .chat-container {
-            max-width: 800px;
-            margin: 20px auto;
+            max-width: 100%;  /* 铺满屏幕宽度 */
+            margin: 20px 0;  /* 左右边距归零 */
             padding: 15px;
         }
         
         .bubble {
             position: relative;
-            max-width: 70%;
+            max-width: 100%;  /* 气泡至少占据屏幕一半（50%以上） */
             margin: 10px 20px;
             padding: 12px;
             border-radius: 8px;
@@ -74,8 +74,14 @@
         /* 确保气泡有相对定位 */
         .bubble {
             position: relative;
+            max-width: 100%;  /* 保持最大宽度为父容器100% */
+            width: auto;  /* 自动填充可用空间 */
         }
-
+        
+        .bubble-right {
+            margin-left: 20px;  /* 调整左侧边距为固定值 */
+            margin-right: 20px;  /* 右侧边距保持一致 */
+        }
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -107,17 +113,21 @@
             font-size: 1.2em;
         }
     </style>
+    <!-- 引入Prism CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css" rel="stylesheet">
+    <!-- 引入Prism JS（包含C语言语法支持） -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
 </head>
 <body>
-    <div class="container py-4">
+    <div class="container-fluid py-4">  <!-- 将container改为container-fluid -->
         <h2 class="mb-4">TSJ数据分析展示</h2>
-        <div class="d-flex justify-content-between mb-1">  <!-- 将mb-3改为mb-1减少下边距 -->
-            <input type="file" id="jsonUpload" class="form-control p-1" accept=".json">  <!-- 添加p-1减少内边距 -->
+        <div class="d-flex justify-content-between mb-1">
+            <input type="file" id="jsonUpload" class="form-control p-1" accept=".json">
             <button id="filterBtn" class="btn btn-outline-primary ms-2" style="white-space: nowrap;">仅显示问题信息</button>
         </div>
         <div id="chatContainer" class="chat-container"></div>
     </div>
-
     <script>
         let currentData = [];
         let showOnlyProblem = false;
@@ -160,15 +170,24 @@
                 // 面板标题
                 const panelHeader = document.createElement('div');
                 panelHeader.className = 'card-header d-flex justify-content-between align-items-center';
-                panelHeader.innerHTML = `
-                    <span>
-                        <strong>${item.log_function}</strong> - 记录 #${item.path_index}
-                        ${item.has_problem_info ? 
-                            '<span class="badge bg-danger ms-2">问题信息</span>' : 
-                            '<span class="badge bg-success ms-2">安全</span>'}
-                    </span>
-                    <button class="btn btn-sm btn-outline-secondary toggle-btn">展开</button>
-                `;
+                if(item.has_problem_info){
+                    panelHeader.innerHTML = `
+                        <span>
+                            <strong>${item.problem_info.problem_type}</strong> - 记录 #${item.problem_info.context}
+                                <span class="badge bg-danger ms-2">问题</span>
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary toggle-btn">展开</button>
+                    `;
+
+                }else{
+                    panelHeader.innerHTML = `
+                        <span>
+                                <span class="badge bg-success ms-2">安全</span>
+                        </span>
+                        <button class="btn btn-sm btn-outline-secondary toggle-btn">展开</button>
+                    `;
+                }
+
                 
                 // 面板内容
                 const panelBody = document.createElement('div');
@@ -193,21 +212,24 @@
                         if (msg.role === 'user') {
                             bubble.className = 'bubble bubble-right';
                             roleHeader.innerHTML = `<i class="bi bi-person-fill"></i><span>用户</span>`;
-                            roleHeader.style.cssText = 'margin-left: auto;';
+                            // roleHeader.style.cssText = 'margin-left: auto;';
                             messageContainer.style.justifyContent = 'flex-end';
                         } else if (msg.role === 'assistant') {
                             bubble.className = 'bubble bubble-left';
                             roleHeader.innerHTML = `<i class="bi bi-robot"></i><span>助手</span>`;
+                            // roleHeader.style.cssText = 'margin-right: auto;';
                             messageContainer.style.justifyContent = 'flex-start';
                         }
                         
                         // 添加内容
-                        bubble.innerHTML = `<div>${msg.content}</div>`;
+                        bubble.innerHTML = `<div><pre><code class="language-c">${msg.content}</code></pre></div>`;
+                        
                         
                         // 组装元素
                         messageContainer.appendChild(roleHeader);
                         messageContainer.appendChild(bubble);
                         panelBody.appendChild(messageContainer);
+                        Prism.highlightAll();
                     });
                 }
 
@@ -241,6 +263,7 @@
                     panelBody.classList.toggle('show');
                     const toggleBtn = panelHeader.querySelector('.toggle-btn');
                     toggleBtn.textContent = panelBody.classList.contains('show') ? '折叠' : '展开';
+                    Prism.highlightAll();
                 });
                 
                 // 防止按钮点击事件冒泡到标题

@@ -95,9 +95,13 @@ class CodeAnalyzer:
                 syms = res.stdout.strip().split('\n')
                 tmp_sym_to_find = symbol
                 i = 0
-                while i<len(syms):
+                loop_count = 0
+                max_loops = len(syms) * 2
+                while i<len(syms) and loop_count < max_loops:
+                    loop_count = loop_count + 1
                     sym_dict = json.loads(syms[i])
                     if sym_dict['name'] != tmp_sym_to_find:
+                        i = i + 1
                         continue
                     # typeref定义的结构体，查符号名指向的是匿名结构体，没有end，要重新找该匿名结构体获取end。先假设符号和结构体在同一个文件。
                     if 'end' not in sym_dict and 'typeref' in sym_dict:
@@ -106,7 +110,7 @@ class CodeAnalyzer:
                         continue
                     sym_dict['content'] = self.get_code_content(file, sym_dict['line'], sym_dict['end'])
                     ret.append(sym_dict)
-                    i = i + 1
+                    break
             return ret
         except Exception as e:
             logger.error(f"获取符号信息时出错: {str(e)}")
