@@ -415,7 +415,7 @@
                     const panelHeader = document.createElement('div');
                     panelHeader.className = 'card-header d-flex justify-content-between align-items-center';
                     
-                    if (item.has_problem_info) {
+                    if (item.has_problem_info && item.problem_info!=null) {
                         panelHeader.innerHTML = `
                             <span>
                                 <strong>${item.problem_info.problem_type}</strong> - 记录 #${item.problem_info.context}
@@ -528,7 +528,7 @@
                     let tableHtml = '<thead><tr><th>字段</th><th>值</th></tr></thead><tbody>';
                     
                     // 添加问题信息详情
-                    if (item.has_problem_info) {
+                    if (item.has_problem_info && item.problem_info!=null) {
                         tableHtml += `<tr class="table-danger">
                             <td>问题信息详情</td>
                             <td>类型: ${item.problem_info.problem_type}<br>

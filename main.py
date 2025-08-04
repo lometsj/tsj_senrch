@@ -17,6 +17,7 @@ from overflow import overflow_problem
 from command_inject import command_inject_problem
 from mem_leak import mem_leak_problem
 from charset_normalizer import detect
+from jsoncpp import jsoncpp_problem
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -121,7 +122,7 @@ class CodeAnalyzer:
         """获取调用这个符号的caller的代码上下文"""
         try:
             result = subprocess.run(
-                ["cscope","-F", ".tsj/cscope" , "-d", "-L3",symbol],
+                ["cscope", "-d", "-L3",symbol],
                 cwd=self.code_dir,
                 capture_output=True,
                 text=True,
@@ -184,8 +185,8 @@ class LLMAnalyzer:
 【代码分析功能说明】
 你可以使用get_symbol功能获取符号定义信息，可以使用find_refs获取函数引用信息以便于向上追踪函数调用栈。
 具体请求格式见下面 `输出结果要求`。
-【输出结果要求】
-请在回答中包含带tsj的标签，以下标签三选一:
+【强制输出结果要求】
+必须在回答中包含带tsj的标签，以下标签三选一[tsj_have][tsj_nothave][tsj_next]:
 - 如判断有代码问题: [tsj_have] 并提供 {"problem_type": "问题类型", "context": "代码上下文"}
 - 如判断无代码信息: [tsj_nothave]
 - 如果不能判断，需要获取信息进一步分析，请包含[tsj_next]，并包含get_symbol或者find_refs请求获取更多代码信息,详细格式如下：
@@ -297,6 +298,15 @@ class LLMAnalyzer:
                 if len(requests) != 0:
                     responses = [self.process_llm_request(req) for req in requests]
                     response_message = "【代码分析系统回答】:\n\n" + json.dumps(responses, ensure_ascii=False, indent=2)
+                    response_message = response_message + '''
+【强制输出结果要求】
+必须在回答中包含带tsj的标签，以下标签三选一[tsj_have][tsj_nothave][tsj_next]:
+- 如判断有代码问题: [tsj_have] 并提供 {"problem_type": "问题类型", "context": "代码上下文"}
+- 如判断无代码信息: [tsj_nothave]
+- 如果不能判断，需要获取信息进一步分析，请包含[tsj_next]，并包含get_symbol或者find_refs请求获取更多代码信息,详细格式如下：
+1. 如果需要知道某个函数，宏或者变量的定义，使用get_symbol获取符号信息: {"command": "get_symbol", "sym_name": "符号名称"}
+2. 如果需要进一步分析数据流，使用find_refs获取调用信息: {"command": "find_refs", "sym_name\": "符号名称"}
+'''
                     messages.append({"role": "user", "content": response_message})
                     logger.info(f"用户请求: {response_message}")
                 else:
@@ -325,9 +335,10 @@ class ResultProcessor:
     
     def save_results(self, result) -> str:
         """保存分析结果到JSON文件"""
-        with open(self.result_file, 'w', encoding='utf-8') as f:
+        with open(self.result_file, 'r+', encoding='utf-8') as f:
             results = json.load(f)
             results.append(result)
+            f.seek(0)
             json.dump(results, f, ensure_ascii=False, indent=2)
     
     
@@ -376,8 +387,9 @@ def main():
     problem_type = [
         # sensitive_problem,
         # command_inject_problem,
-        overflow_problem,
+        # overflow_problem,
         # mem_leak_problem
+        jsoncpp_problem
     ]
     result_processor = ResultProcessor(args.data_dir)
     for problem in problem_type:

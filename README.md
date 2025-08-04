@@ -43,7 +43,7 @@ cd /path/to/code/dir
 find . -type f \( -name "*.c" -o -name "*.h" \) > fileslist
 mkdir .tsj
 ctags -L fileslist -o .tsj/tags
-cscope -kbq -i fileslist -f .tsj/cscope
+cscope -kbq -i fileslist 
 ```
 
 2. 运行分析工具
