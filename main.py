@@ -282,6 +282,8 @@ class LLMAnalyzer:
         }
         while not conversation_complete and turn < max_turns:
             llm_response = self.query_openai(messages)
+            #去除回答里的think
+            llm_response = re.sub(r'<think>.*?</think>', '', llm_response, flags=re.DOTALL)
             messages.append({"role":"assistant", "content": llm_response})
             if '[tsj_have]' in llm_response or '[tsj_nothave]' in llm_response:
                 conversation_complete = True
