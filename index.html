@@ -113,11 +113,25 @@
             font-size: 1.2em;
         }
     </style>
-    <!-- 引入Prism CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.css" rel="stylesheet">
-    <!-- 引入Prism JS（包含C语言语法支持） -->
-    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-c.min.js"></script>
+    <!-- Prism高亮功能已移除，添加基本代码样式 -->
+    <style>
+        pre {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow: auto;
+        }
+        
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            color: #333;
+            line-height: 1.5;
+            tab-size: 4;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid py-4">  <!-- 将container改为container-fluid -->
@@ -473,8 +487,8 @@
                     fragment.appendChild(panel);
                 }
                 
-                // 延迟执行代码高亮，避免阻塞UI
-                setTimeout(() => Prism.highlightAll(), 0);
+                // 代码高亮功能已移除
+                // setTimeout(() => Prism.highlightAll(), 0);
             }
             
             // 延迟加载面板内容
@@ -509,8 +523,8 @@
                                 messageContainer.style.justifyContent = 'flex-start';
                             }
                             
-                            // 添加内容
-                            bubble.innerHTML = `<div><pre><code class="language-c">${msg.content}</code></pre></div>`;
+                            // 添加内容 - 移除代码高亮
+                            bubble.innerHTML = `<div><pre><code>${msg.content}</code></pre></div>`;
                             
                             // 组装元素
                             messageContainer.appendChild(roleHeader);
@@ -543,8 +557,8 @@
                     // 标记为已加载
                     panelBody.dataset.loaded = 'true';
                     
-                    // 高亮代码
-                    setTimeout(() => Prism.highlightElement(panelBody.querySelector('code')), 0);
+                    // 代码高亮功能已移除
+                    // setTimeout(() => Prism.highlightElement(panelBody.querySelector('code')), 0);
                     
                 } catch (error) {
                     console.error('加载面板内容失败:', error);

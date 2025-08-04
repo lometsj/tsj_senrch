@@ -218,10 +218,14 @@ class LLMAnalyzer:
     def extract_requests(self, llm_response: str) -> List[Dict]:
         """从LLM响应中提取JSON请求"""
         requests = []
-        json_pattern = r'\{.*?\}'
+        
+        # 先移除<think></think>标签中的内容
+        think_pattern = r'<think>.*?</think>'
+        cleaned_response = re.sub(think_pattern, '', llm_response, flags=re.DOTALL)
         
         # 查找可能的JSON对象
-        for match in re.finditer(json_pattern, llm_response, re.DOTALL):
+        json_pattern = r'\{.*?\}'
+        for match in re.finditer(json_pattern, cleaned_response, re.DOTALL):
             try:
                 json_str = match.group(0)
                 req = json.loads(json_str)
