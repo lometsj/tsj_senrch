@@ -40,7 +40,7 @@ class CodeAnalyzer:
             return code
     
     def get_ref_callee_content(self, file_path, line_num):
-        print(f'f:{file_path} l:{line_num}')
+        # print(f'f:{file_path} l:{line_num}')
         res = subprocess.run(
             ['ctags','--fields=+ne-P','--output-format=json','-o','-',file_path],
             cwd=self.code_dir,
@@ -122,7 +122,7 @@ class CodeAnalyzer:
         """获取调用这个符号的caller的代码上下文"""
         try:
             result = subprocess.run(
-                ["cscope", "-d", "-L3",symbol],
+                ["global", "-xsr",symbol],
                 cwd=self.code_dir,
                 capture_output=True,
                 text=True,
@@ -143,8 +143,8 @@ class CodeAnalyzer:
                 if len(parts) < 3:
                     continue
                 
-                # callee, file_path, line_num, call_line =parts[0], parts[2], parts[1], parts[3]
-                file_path, calle, line_num, call_line = parts[0], parts[1], parts[2], parts[3]
+                callee, file_path, line_num, call_line =parts[0], parts[2], parts[1], parts[3]
+                # file_path, calle, line_num, call_line = parts[0], parts[1], parts[2], parts[3]
                 # logger.info(callee, file_path, line_num,call_line)
                 # print(f'file={file_path} line_num={line_num}')
                 caller_content = self.get_ref_callee_content(file_path, int(line_num))
@@ -192,6 +192,14 @@ class LLMAnalyzer:
 - 如果不能判断，需要获取信息进一步分析，请包含[tsj_next]，并包含get_symbol或者find_refs请求获取更多代码信息,详细格式如下：
 1. 如果需要知道某个函数，宏或者变量的定义，使用get_symbol获取符号信息: {"command": "get_symbol", "sym_name": "符号名称"}
 2. 如果需要进一步分析数据流，使用find_refs获取调用信息: {"command": "find_refs", "sym_name\": "符号名称"}
+
+【JSON格式返回要求】
+请以JSON格式返回你的回答，例如：
+{"tag": "tsj_have", "problem_info": {"problem_type": "问题类型", "context": "代码上下文"}, "response": "你的分析和解释"}
+或
+{"tag": "tsj_nothave", "response": "你的分析和解释"}
+或
+{"tag": "tsj_next", "requests": [{"command": "get_symbol", "sym_name": "符号名称"}], "response": "你的分析和解释"}
 '''
     
     def process_llm_request(self, request: Dict) -> Dict:
@@ -223,16 +231,34 @@ class LLMAnalyzer:
         think_pattern = r'<think>.*?</think>'
         cleaned_response = re.sub(think_pattern, '', llm_response, flags=re.DOTALL)
         
-        # 查找可能的JSON对象
-        json_pattern = r'\{.*?\}'
-        for match in re.finditer(json_pattern, cleaned_response, re.DOTALL):
-            try:
-                json_str = match.group(0)
-                req = json.loads(json_str)
-                if isinstance(req, dict) and "command" in req:
-                    requests.append(req)
-            except json.JSONDecodeError:
-                continue
+        # 尝试解析整个响应作为JSON
+        try:
+            # 如果整个响应是一个有效的JSON对象
+            full_response = json.loads(cleaned_response)
+            if isinstance(full_response, dict):
+                # 如果JSON对象包含command字段，直接添加
+                if "command" in full_response:
+                    requests.append(full_response)
+                # 如果JSON对象包含requests字段且为列表，添加所有请求
+                elif "requests" in full_response and isinstance(full_response["requests"], list):
+                    for req in full_response["requests"]:
+                        if isinstance(req, dict) and "command" in req:
+                            requests.append(req)
+                # 检查是否有其他可能的命令字段
+                for key, value in full_response.items():
+                    if isinstance(value, dict) and "command" in value:
+                        requests.append(value)
+        except json.JSONDecodeError:
+            # 如果整个响应不是有效的JSON，则回退到原来的方法查找JSON对象
+            json_pattern = r'\{.*?\}'
+            for match in re.finditer(json_pattern, cleaned_response, re.DOTALL):
+                try:
+                    json_str = match.group(0)
+                    req = json.loads(json_str)
+                    if isinstance(req, dict) and "command" in req:
+                        requests.append(req)
+                except json.JSONDecodeError:
+                    continue
         
         return requests
     
@@ -242,6 +268,17 @@ class LLMAnalyzer:
             # 添加重试机制
             max_retries = 3
             retry_delay = 2
+            
+            # 检查系统消息中是否包含JSON相关指令，如果没有则添加
+            has_json_instruction = False
+            for msg in messages:
+                if msg["role"] == "system" and "json" in msg["content"].lower():
+                    has_json_instruction = True
+                    break
+            
+            # 如果没有JSON指令，修改系统消息或添加JSON指令
+            if not has_json_instruction and len(messages) > 0 and messages[0]["role"] == "system":
+                messages[0]["content"] += "\n请以JSON格式返回你的回答。"
             
             for attempt in range(max_retries):
                 try:
@@ -253,6 +290,7 @@ class LLMAnalyzer:
                         top_p=0.95,  # 设置top_p参数
                         frequency_penalty=0,  # 设置frequency_penalty参数
                         presence_penalty=0,  # 设置presence_penalty参数
+                        response_format={"type": "json_object"}  # 设置返回格式为JSON
                     )
                     return response.choices[0].message.content
                 except (openai.RateLimitError, openai.APIError) as e:
@@ -268,7 +306,7 @@ class LLMAnalyzer:
     
     def analyze_task(self, problem_prompt):
         messages = [
-            {"role": "system", "content": problem_prompt['system']},
+            {"role": "system", "content": problem_prompt['system'] + "\n请以JSON格式返回你的回答，包含必要的标签和问题信息。"},
             {"role": "user", "content": problem_prompt['init_user']+self.prompt_need}
         ]
         conversation_complete = False
@@ -285,38 +323,67 @@ class LLMAnalyzer:
             #去除回答里的think
             llm_response = re.sub(r'<think>.*?</think>', '', llm_response, flags=re.DOTALL)
             messages.append({"role":"assistant", "content": llm_response})
-            if '[tsj_have]' in llm_response or '[tsj_nothave]' in llm_response:
-                conversation_complete = True
-                if '[tsj_have]' in llm_response:
-                    result["has_problem_info"] = True
-                try:
-                    json_pattern = r'\{.*?\}'
-                    for match in re.finditer(json_pattern, llm_response, re.DOTALL):
-                        json_str = match.group(0)
-                        problem_info = json.loads(json_str)
-                        if "problem_type" in problem_info and "context" in problem_info:
-                            result["problem_info"] = problem_info
-                            break
-                except Exception as e:
-                    logger.warning(f"提取标签出错: {str(e)}")
-            else:
+            
+            # 尝试解析整个响应为JSON
+            try:
+                response_json = json.loads(llm_response)
+                
+                # 检查JSON响应中是否包含标签信息
+                if isinstance(response_json, dict):
+                    # 检查是否有直接的标签字段
+                    if "tag" in response_json:
+                        tag = response_json["tag"]
+                        if tag == "tsj_have" or tag == "tsj_nothave":
+                            conversation_complete = True
+                            if tag == "tsj_have":
+                                result["has_problem_info"] = True
+                                if "problem_info" in response_json and isinstance(response_json["problem_info"], dict):
+                                    if "problem_type" in response_json["problem_info"] and "context" in response_json["problem_info"]:
+                                        result["problem_info"] = response_json["problem_info"]
+            except json.JSONDecodeError:
+                # 如果不是有效的JSON，回退到原来的文本处理方式
+                if '[tsj_have]' in llm_response or '[tsj_nothave]' in llm_response:
+                    conversation_complete = True
+                    if '[tsj_have]' in llm_response:
+                        result["has_problem_info"] = True
+                    try:
+                        json_pattern = r'\{.*?\}'
+                        for match in re.finditer(json_pattern, llm_response, re.DOTALL):
+                            json_str = match.group(0)
+                            problem_info = json.loads(json_str)
+                            if "problem_type" in problem_info and "context" in problem_info:
+                                result["problem_info"] = problem_info
+                                break
+                    except Exception as e:
+                        logger.warning(f"提取标签出错: {str(e)}")
+            
+            # 如果对话未完成，处理请求
+            if not conversation_complete:
                 requests = self.extract_requests(llm_response)
                 if len(requests) != 0:
                     responses = [self.process_llm_request(req) for req in requests]
                     response_message = "【代码分析系统回答】:\n\n" + json.dumps(responses, ensure_ascii=False, indent=2)
                     response_message = response_message + '''
 【强制输出结果要求】
+你必须只分析对话开始给出的问题，不能分析其他类型的问题
 必须在回答中包含带tsj的标签，以下标签三选一[tsj_have][tsj_nothave][tsj_next]:
 - 如判断有代码问题: [tsj_have] 并提供 {"problem_type": "问题类型", "context": "代码上下文"}
 - 如判断无代码信息: [tsj_nothave]
 - 如果不能判断，需要获取信息进一步分析，请包含[tsj_next]，并包含get_symbol或者find_refs请求获取更多代码信息,详细格式如下：
 1. 如果需要知道某个函数，宏或者变量的定义，使用get_symbol获取符号信息: {"command": "get_symbol", "sym_name": "符号名称"}
 2. 如果需要进一步分析数据流，使用find_refs获取调用信息: {"command": "find_refs", "sym_name\": "符号名称"}
+
+请以JSON格式返回你的回答，例如：
+{"tag": "tsj_have", "problem_info": {"problem_type": "问题类型", "context": "代码上下文"}, "response": "你的分析和解释"}
+或
+{"tag": "tsj_nothave", "response": "你的分析和解释"}
+或
+{"tag": "tsj_next", "requests": [{"command": "get_symbol", "sym_name": "符号名称"}], "response": "你的分析和解释"}
 '''
                     messages.append({"role": "user", "content": response_message})
                     logger.info(f"用户请求: {response_message}")
                 else:
-                    prompt = "请基于已有信息给出最终结论，是否包含敏感信息。记得包含[tsj_have]或[tsj_nothave]或[tsj_next]标记。"
+                    prompt = "请基于已有信息给出最终结论，是否包含敏感信息。记得包含[tsj_have]或[tsj_nothave]或[tsj_next]标记。请以JSON格式返回你的回答。"
                     messages.append({"role": "user", "content": prompt})
             turn += 1
         if turn == max_turns:
@@ -394,17 +461,18 @@ def main():
         # sensitive_problem,
         # command_inject_problem,
         # overflow_problem,
-        # mem_leak_problem
-        jsoncpp_problem
+        mem_leak_problem
+        # jsoncpp_problem
     ]
     result_processor = ResultProcessor(args.data_dir)
     for problem in problem_type:
         task_list = problem.get_task_list(config, code_analyzer)
-        print(task_list)
+        # print(task_list)
         #todo batch mode
         for i in range(len(task_list)):
             task = task_list[i]
             result = llm_analyzer.analyze_task(problem.prepare_context(task))
+            print('one task complete,res:',result)
             result_processor.save_results(result)
     
     logger.info(f"分析完成！结果已保存到: {result_processor.result_file}")
