@@ -9,3 +9,4 @@ tsj_venv
 **/*.pywz
 config*.json
 test_c_file
+venv

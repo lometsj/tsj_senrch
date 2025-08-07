@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TSJ代码分析 - 实时对话</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .chat-container {
+            max-width: 100%;
+            margin: 20px 0;
+            padding: 15px;
+            height: calc(100vh - 250px);
+            overflow-y: auto;
+        }
+        
+        .bubble {
+            position: relative;
+            max-width: 80%;
+            margin: 10px 20px;
+            padding: 12px;
+            border-radius: 8px;
+            animation: fadeIn 0.3s;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .bubble-left {
+            background: #d1f4d3;
+            margin-right: auto;
+        }
+        
+        .bubble-right {
+            background: #e5f2ff;
+            margin-left: auto;
+        }
+        
+        .bubble-left::before {
+            left: -10px;
+            top: 10px;
+            border-width: 8px 10px 8px 0;
+            border-color: transparent #d1f4d3 transparent transparent;
+        }
+        
+        .bubble-right::before {
+            right: -10px;
+            top: 10px;
+            border-width: 8px 0 8px 10px;
+            border-color: transparent transparent transparent #e5f2ff;
+        }
+        
+        .bubble-left::before, .bubble-right::before {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-style: solid;
+        }
+        
+        .message-container {
+            display: flex;
+            flex-direction: column;
+            margin: 15px 0;
+        }
+        
+        .role-header {
+            margin: 0 20px 5px 20px;
+            font-size: 0.9em;
+            color: #666;
+            display: flex;
+            align-items: center;
+        }
+        
+        .role-header i {
+            margin-right: 8px;
+            font-size: 1.2em;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        pre {
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            overflow: auto;
+        }
+        
+        code {
+            font-family: Consolas, Monaco, 'Andale Mono', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            color: #333;
+            line-height: 1.5;
+            tab-size: 4;
+        }
+        
+        .status-bar {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 15px;
+            background-color: #fff;
+            border-top: 1px solid #ddd;
+        }
+        
+        .waiting-input {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid py-4">
+        <h2 class="mb-4">TSJ代码分析 - 实时对话</h2>
+        
+        <div id="statusBar" class="status-bar">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>状态:</strong> <span id="taskStatus">空闲</span>
+                </div>
+                <div id="taskInfo" class="d-none">
+                    <strong>任务:</strong> <span id="taskType"></span>
+                    <strong>符号:</strong> <span id="symbolName"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="chatContainer" class="chat-container"></div>
+        
+        <div class="input-container">
+            <div class="row">
+                <div class="col-12">
+                    <div class="input-group">
+                        <textarea id="userInput" class="form-control" rows="3" placeholder="请输入符号信息..." disabled></textarea>
+                        <button id="sendBtn" class="btn btn-primary" disabled>发送</button>
+                    </div>
+                    <div id="inputHelp" class="form-text d-none">
+                        请输入符号信息，帮助代码分析器继续分析。
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 全局变量
+        let eventSource;
+        let isWaitingForInput = false;
+        
+        // DOM元素
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const taskStatus = document.getElementById('taskStatus');
+        const taskInfo = document.getElementById('taskInfo');
+        const taskType = document.getElementById('taskType');
+        const symbolName = document.getElementById('symbolName');
+        const inputHelp = document.getElementById('inputHelp');
+        
+        // 初始化事件源
+        function initEventSource() {
+            eventSource = new EventSource('/api/stream');
+            
+            // 当前流式消息元素
+            let currentStreamMessageContainer = null;
+            let currentStreamMessageBubble = null;
+            
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'heartbeat') {
+                    // 心跳包，不做处理
+                    return;
+                }
+                
+                if (data.type === 'status_update') {
+                    updateStatus(data);
+                } else if (data.type === 'message') {
+                    // 完整消息
+                    addMessage(data.message);
+                } else if (data.type === 'message_start') {
+                    // 开始流式消息
+                    startStreamMessage(data.message);
+                } else if (data.type === 'message_chunk') {
+                    // 流式消息块
+                    appendStreamMessageChunk(data.chunk);
+                } else if (data.type === 'message_end') {
+                    // 结束流式消息
+                    finishStreamMessage();
+                }
+            };
+            
+            // 开始流式消息
+            function startStreamMessage(message) {
+                // 创建消息容器
+                currentStreamMessageContainer = document.createElement('div');
+                currentStreamMessageContainer.className = 'message-container';
+                
+                // 创建角色头部
+                const roleHeader = document.createElement('div');
+                roleHeader.className = 'role-header';
+                
+                // 创建气泡元素
+                currentStreamMessageBubble = document.createElement('div');
+                
+                // 设置气泡样式和角色头部
+                if (message.role === 'assistant') {
+                    currentStreamMessageBubble.className = 'bubble bubble-left';
+                    roleHeader.innerHTML = `<i class="bi bi-robot"></i><span>助手</span>`;
+                    currentStreamMessageContainer.style.justifyContent = 'flex-start';
+                }
+                
+                // 添加到DOM
+                currentStreamMessageContainer.appendChild(roleHeader);
+                currentStreamMessageContainer.appendChild(currentStreamMessageBubble);
+                chatContainer.appendChild(currentStreamMessageContainer);
+                
+                // 初始内容
+                currentStreamMessageBubble.textContent = message.content || '';
+                
+                // 滚动到底部
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+            
+            // 追加流式消息块
+            function appendStreamMessageChunk(chunk) {
+                if (currentStreamMessageBubble) {
+                    // 追加内容
+                    currentStreamMessageBubble.textContent += chunk;
+                    
+                    // 滚动到底部
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+            }
+            
+            // 完成流式消息
+            function finishStreamMessage() {
+                if (currentStreamMessageBubble) {
+                    // 处理消息内容，支持代码块
+                    let content = currentStreamMessageBubble.textContent;
+                    
+                    // 简单的Markdown代码块处理
+                    content = content.replace(/```([\s\S]*?)```/g, function(match, code) {
+                        return `<pre><code>${code}</code></pre>`;
+                    });
+                    
+                    currentStreamMessageBubble.innerHTML = content;
+                    
+                    // 重置当前流式消息
+                    currentStreamMessageContainer = null;
+                    currentStreamMessageBubble = null;
+                }
+            }
+            
+            eventSource.onerror = function() {
+                console.error('EventSource连接失败，尝试重连...');
+                eventSource.close();
+                setTimeout(initEventSource, 3000);
+            };
+        }
+        
+        // 更新状态
+        function updateStatus(data) {
+            taskStatus.textContent = getStatusText(data.status);
+            
+            if (data.status === 'waiting_input') {
+                isWaitingForInput = true;
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+                userInput.classList.add('waiting-input');
+                inputHelp.classList.remove('d-none');
+                
+                if (data.task_type && data.symbol_name) {
+                    taskInfo.classList.remove('d-none');
+                    taskType.textContent = getTaskTypeText(data.task_type);
+                    symbolName.textContent = data.symbol_name;
+                    
+                    // 添加系统提示消息
+                    const message = {
+                        role: 'system',
+                        content: `请提供符号 "${data.symbol_name}" 的${getTaskTypeText(data.task_type)}信息`
+                    };
+                    addMessage(message);
+                }
+            } else {
+                isWaitingForInput = false;
+                userInput.disabled = true;
+                sendBtn.disabled = true;
+                userInput.classList.remove('waiting-input');
+                inputHelp.classList.add('d-none');
+                
+                if (data.status === 'idle') {
+                    taskInfo.classList.add('d-none');
+                }
+            }
+        }
+        
+        // 获取状态文本
+        function getStatusText(status) {
+            switch (status) {
+                case 'idle': return '空闲';
+                case 'running': return '运行中';
+                case 'waiting_input': return '等待输入';
+                default: return status;
+            }
+        }
+        
+        // 获取任务类型文本
+        function getTaskTypeText(taskType) {
+            switch (taskType) {
+                case 'get_symbol': return '符号定义';
+                case 'find_refs': return '引用信息';
+                default: return taskType;
+            }
+        }
+        
+        // 添加消息
+        function addMessage(message) {
+            // 创建消息容器
+            const messageContainer = document.createElement('div');
+            messageContainer.className = 'message-container';
+            
+            // 创建角色头部
+            const roleHeader = document.createElement('div');
+            roleHeader.className = 'role-header';
+            
+            // 创建气泡元素
+            const bubble = document.createElement('div');
+            
+            // 设置气泡样式和角色头部
+            if (message.role === 'user') {
+                bubble.className = 'bubble bubble-right';
+                roleHeader.innerHTML = `<i class="bi bi-person-fill"></i><span>用户</span>`;
+                messageContainer.style.justifyContent = 'flex-end';
+            } else if (message.role === 'assistant') {
+                bubble.className = 'bubble bubble-left';
+                roleHeader.innerHTML = `<i class="bi bi-robot"></i><span>助手</span>`;
+                messageContainer.style.justifyContent = 'flex-start';
+            } else if (message.role === 'system') {
+                bubble.className = 'bubble bubble-left';
+                roleHeader.innerHTML = `<i class="bi bi-info-circle"></i><span>系统</span>`;
+                messageContainer.style.justifyContent = 'flex-start';
+                bubble.style.backgroundColor = '#f8f9fa';
+            }
+            
+            // 处理消息内容，支持代码块
+            let content = message.content;
+            
+            // 简单的Markdown代码块处理
+            content = content.replace(/```([\s\S]*?)```/g, function(match, code) {
+                return `<pre><code>${code}</code></pre>`;
+            });
+            
+            bubble.innerHTML = content;
+            
+            // 添加到DOM
+            messageContainer.appendChild(roleHeader);
+            messageContainer.appendChild(bubble);
+            chatContainer.appendChild(messageContainer);
+            
+            // 滚动到底部
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+        
+        // 发送用户输入
+        function sendUserInput() {
+            if (!isWaitingForInput || !userInput.value.trim()) {
+                return;
+            }
+            
+            const content = userInput.value.trim();
+            
+            // 添加用户消息到聊天
+            addMessage({
+                role: 'user',
+                content: content
+            });
+            
+            // 发送到服务器
+            fetch('/api/input', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    input: content,
+                    is_json: false
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error('发送输入失败:', data.error);
+                }
+                
+                // 清空输入框
+                userInput.value = '';
+            })
+            .catch(error => {
+                console.error('发送输入错误:', error);
+            });
+        }
+        
+        // 事件监听
+        sendBtn.addEventListener('click', sendUserInput);
+        
+        userInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendUserInput();
+            }
+        });
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化事件源
+            initEventSource();
+            
+            // 获取初始状态
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateStatus({
+                        type: 'status_update',
+                        status: data.status,
+                        task_type: data.task_type,
+                        symbol_name: data.symbol_name
+                    });
+                })
+                .catch(error => {
+                    console.error('获取状态失败:', error);
+                });
+            
+            // 获取初始对话
+            fetch('/api/conversation')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.messages && Array.isArray(data.messages)) {
+                        data.messages.forEach(message => {
+                            addMessage(message);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('获取对话失败:', error);
+                });
+        });
+    </script>
+</body>
+</html>
