@@ -1,11 +1,11 @@
 # 大模型代码分析和审计工具
 
-这是一个使用大语言模型(LLM)来分析C/C++代码中。该工具通过分析代码调用关系（基于ctags cscope等），并使用LLM来判断代码安全问题。
+这是一个使用大语言模型(LLM)来分析C/C++代码中。该工具通过分析代码调用关系（基于ctags 、gnu global等），并使用LLM来判断代码安全问题。
 
 ## something
 
 
-- 基于cscope生成代码调用关系
+- 基于gnu global生成代码调用关系
 - 支持多轮对话，让LLM深入分析代码上下文
 - 生成详细的HTML报告，高亮显示可能泄露敏感信息的代码位置
 - 保存分析结果为JSON格式，方便后续处理
@@ -16,11 +16,11 @@
 pip install openai argparse
 ```
 
-同时需要确保系统已安装cscope工具：
+同时需要确保系统已安装gnu global 、ctags工具：
 
-- 在Ubuntu/Debian系统上：`sudo apt-get install cscope universal-ctags`
-- 在CentOS/RHEL系统上：`sudo yum install cscope universal-ctags`
-- 在macOS系统上：`brew install cscope universal-ctags`
+- 在Ubuntu/Debian系统上：`sudo apt-get install universal-ctags global`
+- 在CentOS/RHEL系统上：`sudo yum install universal-ctags global`
+- 在macOS系统上：`brew install universal-ctags global`
 - 在Windows系统上：可通过cygwin或WSL安装
 
 ## 使用方法
@@ -37,13 +37,13 @@ pip install openai argparse
    "model":"qwen2.5-coder"
    } 
    ```
-2. 使用ctags和cscope建立tags数据库
+2. 使用ctags和global建立tags数据库
 ```
 cd /path/to/code/dir
-find . -type f \( -name "*.c" -o -name "*.h" \) > fileslist
+find . -type f \( -name "*.c" -o -name "*.h" \) > gtags.files
 mkdir .tsj
-ctags -L fileslist -o .tsj/tags
-cscope -kbq -i fileslist 
+ctags -L gtags.files -o .tsj/tags
+gtags -i
 ```
 
 2. 运行分析工具

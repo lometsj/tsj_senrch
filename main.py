@@ -623,10 +623,10 @@ def main():
     
     #################################register different type of vuln
     problem_type = [
-        # sensitive_problem,
+        sensitive_problem,
         # command_inject_problem,
         # overflow_problem,
-        mem_leak_problem
+        # mem_leak_problem
         # jsoncpp_problem
     ]
     result_processor = ResultProcessor(args.data_dir)
